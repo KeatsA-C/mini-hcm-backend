@@ -77,7 +77,8 @@ export function computeMetrics({ punchIn, punchOut, schedule, timezone }) {
   const lateMs = Math.max(0, piMs - schedStartMs);
   const lateMinutes = toMinutes(lateMs);
 
-  const undertimeMs = poMs < schedEndMs ? Math.max(0, schedEndMs - poMs) : 0;
+  const undertimeMs =
+    poMs < schedEndMs ? Math.max(0, schedEndMs - Math.max(poMs, schedStartMs)) : 0;
   const undertimeMinutes = toMinutes(undertimeMs);
 
   const regularMs = overlap(piMs, poMs, schedStartMs, schedEndMs);
