@@ -2,15 +2,6 @@ import { db } from '../../lib/firebase.admin.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-// ─── Assign Schedule ──────────────────────────────────────────────────────────
-
-/**
- * Updates the work schedule (and optionally timezone) for a user.
- * Admin/superadmin only.
- * @param {string} targetUid  - UID of the employee to update
- * @param {{ start: string, end: string }} schedule - 'HH:MM' strings
- * @param {string} [timezone] - IANA timezone string, defaults to 'Asia/Manila'
- */
 export async function assignSchedule(targetUid, { schedule, timezone }) {
   const ref = db.collection('users').doc(targetUid);
   const snap = await ref.get();
@@ -40,17 +31,9 @@ export async function assignSchedule(targetUid, { schedule, timezone }) {
   return { uid: targetUid, ...updated.data() };
 }
 
-// ─── Punch Management (Admin) ─────────────────────────────────────────────────
-
-/**
- * Fetch all attendance records for a specific employee.
- * Admin/superadmin only.
- */
 export async function getEmployeePunches(targetUid, { startDate, endDate } = {}) {
   let query = db.collection('attendance').where('uid', '==', targetUid);
 
-  // Range filters on the same field are allowed without a composite index.
-  // Sorting is done in JS to avoid requiring a (uid, punchIn) composite index.
   if (startDate) query = query.where('punchIn', '>=', `${startDate}T00:00:00.000Z`);
   if (endDate) query = query.where('punchIn', '<=', `${endDate}T23:59:59.999Z`);
 
@@ -59,11 +42,6 @@ export async function getEmployeePunches(targetUid, { startDate, endDate } = {})
   return records.sort((a, b) => b.punchIn.localeCompare(a.punchIn)); // newest first
 }
 
-/**
- * Edit a specific punch record by its Firestore document ID.
- * Allowed fields: punchIn (ISO string), punchOut (ISO string).
- * After editing, recomputes metrics and refreshes the daily summary.
- */
 export async function editPunch(punchId, { punchIn, punchOut }) {
   const ref = db.collection('attendance').doc(punchId);
   const snap = await ref.get();
@@ -98,12 +76,22 @@ export async function editPunch(punchId, { punchIn, punchOut }) {
       timezone: timezone || 'Asia/Manila',
     });
     updates.metrics = metrics;
-
-    // Rebuild daily summary for that date
-    await rebuildDailySummary(data.uid, metrics.workDate);
   }
 
   await ref.update(updates);
+
+  if (updatedPunchOut && updates.metrics) {
+    const { workDate } = updates.metrics;
+
+    // Rebuild the new workDate's daily summary.
+    await rebuildDailySummary(data.uid, workDate);
+
+    const oldWorkDate = data.metrics?.workDate;
+    if (oldWorkDate && oldWorkDate !== workDate) {
+      await rebuildDailySummary(data.uid, oldWorkDate);
+    }
+  }
+
   const updated = await ref.get();
   return { id: punchId, ...updated.data() };
 }
@@ -119,8 +107,6 @@ export async function deletePunch(punchId) {
 
   const data = snap.data();
 
-  // Determine the workDate so we can rebuild the summary after deletion.
-  // Prefer the already-computed metrics.workDate; fall back to the punchIn date.
   const workDate =
     data.metrics?.workDate ??
     new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(data.punchIn));
@@ -133,10 +119,6 @@ export async function deletePunch(punchId) {
   return { id: punchId, deleted: true };
 }
 
-/**
- * Rebuilds the dailySummary document for a given uid + workDate
- * by re-aggregating all completed attendance records for that day.
- */
 async function rebuildDailySummary(uid, workDate) {
   const summaryId = `${uid}_${workDate}`;
 

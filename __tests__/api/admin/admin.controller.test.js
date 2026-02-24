@@ -2,18 +2,28 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 const mockGetEmployeePunches = jest.fn();
 const mockEditPunch = jest.fn();
+const mockDeletePunch = jest.fn();
+const mockAssignSchedule = jest.fn();
 const mockGetAllDailyReports = jest.fn();
 const mockGetAllWeeklyReports = jest.fn();
 
 jest.unstable_mockModule('../../../src/api/admin/admin.services.js', () => ({
   getEmployeePunches: mockGetEmployeePunches,
   editPunch: mockEditPunch,
+  deletePunch: mockDeletePunch,
+  assignSchedule: mockAssignSchedule,
   getAllDailyReports: mockGetAllDailyReports,
   getAllWeeklyReports: mockGetAllWeeklyReports,
 }));
 
-const { getEmployeePunchesHandler, editPunchHandler, dailyReportHandler, weeklyReportHandler } =
-  await import('../../../src/api/admin/admin.controller.js');
+const {
+  getEmployeePunchesHandler,
+  editPunchHandler,
+  deletePunchHandler,
+  assignScheduleHandler,
+  dailyReportHandler,
+  weeklyReportHandler,
+} = await import('../../../src/api/admin/admin.controller.js');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -133,6 +143,87 @@ describe('editPunchHandler', () => {
     const res = mockRes();
     await editPunchHandler(req, res);
     expect(res.status).toHaveBeenCalledWith(500);
+  });
+});
+
+// ─── deletePunchHandler ──────────────────────────────────────────────────────
+
+describe('deletePunchHandler', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns 200 with deleted:true on success', async () => {
+    mockDeletePunch.mockResolvedValueOnce({ id: 'p1', deleted: true });
+    const req = { params: { punchId: 'p1' } };
+    const res = mockRes();
+    await deletePunchHandler(req, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Punch deleted successfully', id: 'p1', deleted: true }),
+    );
+    expect(mockDeletePunch).toHaveBeenCalledWith('p1');
+  });
+
+  it('returns 404 when punch record is not found', async () => {
+    mockDeletePunch.mockRejectedValueOnce(new Error('Punch record not found'));
+    const req = { params: { punchId: 'ghost' } };
+    const res = mockRes();
+    await deletePunchHandler(req, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('returns 500 on other service errors', async () => {
+    mockDeletePunch.mockRejectedValueOnce(new Error('Unexpected error'));
+    const req = { params: { punchId: 'p1' } };
+    const res = mockRes();
+    await deletePunchHandler(req, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+});
+
+// ─── assignScheduleHandler ────────────────────────────────────────────────────
+
+describe('assignScheduleHandler', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns 200 with updated user data on success', async () => {
+    const updated = {
+      uid: 'u1',
+      schedule: { start: '09:00', end: '18:00' },
+      timezone: 'Asia/Manila',
+    };
+    mockAssignSchedule.mockResolvedValueOnce(updated);
+    const req = {
+      params: { uid: 'u1' },
+      body: { schedule: { start: '09:00', end: '18:00' }, timezone: 'Asia/Manila' },
+    };
+    const res = mockRes();
+    await assignScheduleHandler(req, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Schedule updated successfully', uid: 'u1' }),
+    );
+    expect(mockAssignSchedule).toHaveBeenCalledWith('u1', {
+      schedule: { start: '09:00', end: '18:00' },
+      timezone: 'Asia/Manila',
+    });
+  });
+
+  it('returns 404 when user is not found', async () => {
+    mockAssignSchedule.mockRejectedValueOnce(new Error('User not found'));
+    const req = { params: { uid: 'ghost' }, body: { schedule: { start: '08:00', end: '17:00' } } };
+    const res = mockRes();
+    await assignScheduleHandler(req, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('returns 400 on validation errors (missing fields)', async () => {
+    mockAssignSchedule.mockRejectedValueOnce(
+      new Error('Provide at least one of schedule or timezone to update'),
+    );
+    const req = { params: { uid: 'u1' }, body: {} };
+    const res = mockRes();
+    await assignScheduleHandler(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 });
 
