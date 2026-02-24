@@ -2,6 +2,44 @@ import { db } from '../../lib/firebase.admin.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+// ─── Assign Schedule ──────────────────────────────────────────────────────────
+
+/**
+ * Updates the work schedule (and optionally timezone) for a user.
+ * Admin/superadmin only.
+ * @param {string} targetUid  - UID of the employee to update
+ * @param {{ start: string, end: string }} schedule - 'HH:MM' strings
+ * @param {string} [timezone] - IANA timezone string, defaults to 'Asia/Manila'
+ */
+export async function assignSchedule(targetUid, { schedule, timezone }) {
+  const ref = db.collection('users').doc(targetUid);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('User not found');
+
+  const updates = {};
+
+  if (schedule) {
+    if (!schedule.start || !schedule.end) {
+      throw new Error('schedule.start and schedule.end are required (HH:MM format)');
+    }
+    updates.schedule = { start: schedule.start, end: schedule.end };
+  }
+
+  if (timezone) {
+    updates.timezone = timezone;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error('Provide at least one of schedule or timezone to update');
+  }
+
+  updates.updatedAt = new Date().toISOString();
+  await ref.update(updates);
+
+  const updated = await ref.get();
+  return { uid: targetUid, ...updated.data() };
+}
+
 // ─── Punch Management (Admin) ─────────────────────────────────────────────────
 
 /**
@@ -57,7 +95,7 @@ export async function editPunch(punchId, { punchIn, punchOut }) {
       punchIn: updatedPunchIn,
       punchOut: updatedPunchOut,
       schedule,
-      timezone: timezone || 'UTC',
+      timezone: timezone || 'Asia/Manila',
     });
     updates.metrics = metrics;
 

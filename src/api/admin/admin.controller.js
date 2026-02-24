@@ -1,6 +1,7 @@
 import {
   getEmployeePunches,
   editPunch,
+  assignSchedule,
   getAllDailyReports,
   getAllWeeklyReports,
 } from './admin.services.js';
@@ -37,6 +38,21 @@ export async function editPunchHandler(req, res) {
     res.status(200).json({ message: 'Punch updated successfully', ...updated });
   } catch (error) {
     const status = error.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+}
+
+// ─── PUT /api/admin/schedule/:uid ────────────────────────────────────────────
+// Body: { schedule?: { start: 'HH:MM', end: 'HH:MM' }, timezone?: string }
+
+export async function assignScheduleHandler(req, res) {
+  try {
+    const { uid } = req.params;
+    const { schedule, timezone } = req.body;
+    const result = await assignSchedule(uid, { schedule, timezone });
+    res.status(200).json({ message: 'Schedule updated successfully', ...result });
+  } catch (error) {
+    const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
 }

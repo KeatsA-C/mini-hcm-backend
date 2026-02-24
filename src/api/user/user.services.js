@@ -23,7 +23,7 @@ export async function addUser(
         email,
         department,
         position,
-        timezone,
+        timezone: timezone || 'Asia/Manila',
         role,
         schedule: {
           start: schedule?.start ?? '09:00',

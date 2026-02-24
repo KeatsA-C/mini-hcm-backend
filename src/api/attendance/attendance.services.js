@@ -10,6 +10,10 @@ import { computeMetrics } from '../../lib/computeHours.js';
  *  - todaySummary: today's dailySummary doc (if any)
  */
 export async function getPunchStatus(uid) {
+  // Fetch user timezone so today's summary uses the correct local date
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userTimezone = userDoc.exists ? userDoc.data().timezone || 'Asia/Manila' : 'Asia/Manila';
+
   // Check for an open punch (punchOut === null)
   const openSnap = await db
     .collection('attendance')
@@ -20,8 +24,11 @@ export async function getPunchStatus(uid) {
 
   const openPunch = openSnap.empty ? null : { id: openSnap.docs[0].id, ...openSnap.docs[0].data() };
 
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const summaryId = `${uid}_${todayUtc}`;
+  // Use the user's local date (not UTC) so the summary always matches workDate
+  const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: userTimezone }).format(
+    new Date(),
+  );
+  const summaryId = `${uid}_${todayLocal}`;
   const summarySnap = await db.collection('dailySummary').doc(summaryId).get();
   const todaySummary = summarySnap.exists ? { id: summarySnap.id, ...summarySnap.data() } : null;
 
@@ -121,7 +128,7 @@ export async function punchOut(uid) {
     punchIn: punchInDate,
     punchOut: now,
     schedule,
-    timezone: timezone || 'UTC',
+    timezone: timezone || 'Asia/Manila',
   });
 
   // Update punch record
