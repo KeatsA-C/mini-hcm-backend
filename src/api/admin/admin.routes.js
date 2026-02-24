@@ -3,6 +3,7 @@ import { authenticate, requireRole } from '../../middleware/auth.middleware.js';
 import {
   getEmployeePunchesHandler,
   editPunchHandler,
+  deletePunchHandler,
   assignScheduleHandler,
   dailyReportHandler,
   weeklyReportHandler,
@@ -16,6 +17,7 @@ router.use(authenticate, requireRole('admin', 'superadmin'));
 // Punch management
 router.get('/punches/:uid', getEmployeePunchesHandler);
 router.put('/punches/:punchId', editPunchHandler);
+router.delete('/punches/:punchId', deletePunchHandler);
 
 // Schedule management
 router.put('/schedule/:uid', assignScheduleHandler);

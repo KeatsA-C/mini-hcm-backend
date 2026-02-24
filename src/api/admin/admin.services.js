@@ -109,6 +109,31 @@ export async function editPunch(punchId, { punchIn, punchOut }) {
 }
 
 /**
+ * Permanently deletes a punch record.
+ * Rebuilds (or removes) the daily summary for the affected date.
+ */
+export async function deletePunch(punchId) {
+  const ref = db.collection('attendance').doc(punchId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('Punch record not found');
+
+  const data = snap.data();
+
+  // Determine the workDate so we can rebuild the summary after deletion.
+  // Prefer the already-computed metrics.workDate; fall back to the punchIn date.
+  const workDate =
+    data.metrics?.workDate ??
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(data.punchIn));
+
+  await ref.delete();
+
+  // Rebuild (or auto-delete if no punches remain for that day)
+  await rebuildDailySummary(data.uid, workDate);
+
+  return { id: punchId, deleted: true };
+}
+
+/**
  * Rebuilds the dailySummary document for a given uid + workDate
  * by re-aggregating all completed attendance records for that day.
  */

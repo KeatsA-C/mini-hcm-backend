@@ -1,6 +1,7 @@
 import {
   getEmployeePunches,
   editPunch,
+  deletePunch,
   assignSchedule,
   getAllDailyReports,
   getAllWeeklyReports,
@@ -36,6 +37,19 @@ export async function editPunchHandler(req, res) {
 
     const updated = await editPunch(punchId, { punchIn, punchOut });
     res.status(200).json({ message: 'Punch updated successfully', ...updated });
+  } catch (error) {
+    const status = error.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+}
+
+// ─── DELETE /api/admin/punches/:punchId ──────────────────────────────────────
+
+export async function deletePunchHandler(req, res) {
+  try {
+    const { punchId } = req.params;
+    const result = await deletePunch(punchId);
+    res.status(200).json({ message: 'Punch deleted successfully', ...result });
   } catch (error) {
     const status = error.message.includes('not found') ? 404 : 500;
     res.status(status).json({ error: error.message });
