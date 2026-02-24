@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 keys/
-secrets/
+etc/
 scripts/
 # Logs
 npm-debug.log*

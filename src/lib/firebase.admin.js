@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 
 try {
   const serviceAccount = JSON.parse(
-    readFileSync(new URL('../../secrets/firebase.json', import.meta.url)),
+    readFileSync(new URL('../../etc/secrets/firebase.json', import.meta.url)),
   );
 
   admin.initializeApp({
